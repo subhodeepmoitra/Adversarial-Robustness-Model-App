@@ -171,7 +171,7 @@ transform = transforms.Compose([
 st.title('Image Reconstruction with Adversarial Attacks')
 st.write("Upload an image and see the reconstructed version with adversarial noise.")
 
-uploaded_file = st.file_uploader("Choose an image...", type="jpg")
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png"])
 
 if uploaded_file is not None:
     # Open the uploaded image and apply transformations
