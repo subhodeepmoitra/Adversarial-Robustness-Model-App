@@ -4,6 +4,7 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 
 # Define the Multi-Head Attention Layer
 class MultiHeadAttention(nn.Module):
