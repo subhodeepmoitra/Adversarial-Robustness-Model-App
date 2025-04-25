@@ -155,7 +155,8 @@ class SkipAutoencoder(nn.Module):
         return x
 
 # Load your model
-model = SkipAutoencoder().cuda()  # Move to GPU if available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = SkipAutoencoder().to(device)
 model.load_state_dict(torch.load('model_components/FGSM+PGD_Trained_Model.pth'))
 model.eval()
 
