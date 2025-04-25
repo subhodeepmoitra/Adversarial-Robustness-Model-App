@@ -195,14 +195,18 @@ if uploaded_file is not None:
     with torch.no_grad():
         reconstructed_image = model(img_tensor)  # Run reconstruction
     
-    # Display original and reconstructed images
-    st.image(img, caption="Original Image", use_column_width=True)
-    st.write("Reconstructed Image:")
+    # Display original and reconstructed images side by side
+    col1, col2 = st.columns(2)  # Create two columns
+
+    with col1:
+        st.image(img, caption="Original Image", use_column_width=True)
     
-    # Convert the tensor back to a PIL image for display
-    reconstructed_image = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
-    reconstructed_image = np.clip(reconstructed_image, 0, 1)
-    st.image(reconstructed_image, caption="Reconstructed Image", use_column_width=True)
+    with col2:
+        # Convert the tensor back to a PIL image for display
+        reconstructed_image = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
+        reconstructed_image = np.clip(reconstructed_image, 0, 1)
+        st.image(reconstructed_image, caption="Reconstructed Image", use_column_width=True)
+
 
     # Optionally, display some metrics like PSNR and SSIM
     # You could add your metrics function calls here
