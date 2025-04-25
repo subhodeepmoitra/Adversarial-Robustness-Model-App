@@ -5,6 +5,104 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Define the Multi-Head Attention Layer
+class MultiHeadAttention(nn.Module):
+    def __init__(self, in_channels, num_heads=4):
+        super(MultiHeadAttention, self).__init__()
+        assert in_channels % num_heads == 0, "in_channels must be divisible by num_heads"
+
+        self.num_heads = num_heads
+        self.head_dim = in_channels // num_heads
+
+        # Define the query, key, and value projections for each head
+        self.query_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+        # Output projection
+        self.out_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+    def forward(self, query, key, value):
+        batch_size, channels, height, width = query.size()
+
+        # Apply projections to get query, key, and value
+        query = self.query_conv(query)  # (B, C, H, W)
+        key = self.key_conv(key)        # (B, C, H, W)
+        value = self.value_conv(value)  # (B, C, H, W)
+
+        # Reshape for multi-head attention
+        query = query.view(batch_size, self.num_heads, self.head_dim, height * width)  # (B, heads, head_dim, H*W)
+        key = key.view(batch_size, self.num_heads, self.head_dim, height * width)        # (B, heads, head_dim, H*W)
+        value = value.view(batch_size, self.num_heads, self.head_dim, height * width)  # (B, heads, head_dim, H*W)
+
+        # Transpose for attention computation
+        query = query.permute(0, 1, 3, 2)  # (B, heads, H*W, head_dim)
+        key = key.permute(0, 1, 2, 3)      # (B, heads, head_dim, H*W)
+
+        # Compute attention scores
+        attention_scores = torch.matmul(query, key) / (self.head_dim ** 0.5)  # (B, heads, H*W, H*W)
+        attention_weights = F.softmax(attention_scores, dim=-1)
+
+        # Apply attention weights to value
+        attention_output = torch.matmul(attention_weights, value.permute(0, 1, 3, 2))  # (B, heads, H*W, head_dim)
+
+        # Reshape back to original shape
+        attention_output = attention_output.permute(0, 1, 3, 2).contiguous()  # (B, heads, head_dim, H*W)
+        attention_output = attention_output.view(batch_size, channels, height, width)  # (B, C, H, W)
+
+        # Project back to the original channel size
+        out = self.out_conv(attention_output)
+
+        return out
+class MultiHeadAttentionDecoder(nn.Module):
+    def __init__(self, in_channels, num_heads=1):
+        super(MultiHeadAttentionDecoder, self).__init__()
+        assert in_channels % num_heads == 0, "in_channels must be divisible by num_heads"
+
+        self.num_heads = num_heads
+        self.head_dim = in_channels // num_heads
+
+        # Define the query, key, and value projections for each head
+        self.query_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+        # Output projection
+        self.out_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+    def forward(self, query, key, value):
+        batch_size, channels, height, width = query.size()
+
+        # Apply projections to get query, key, and value
+        query = self.query_conv(query)  # (B, C, H, W)
+        key = self.key_conv(key)        # (B, C, H, W)
+        value = self.value_conv(value)  # (B, C, H, W)
+
+        # Reshape for multi-head attention
+        query = query.view(batch_size, self.num_heads, self.head_dim, height * width)  # (B, heads, head_dim, H*W)
+        key = key.view(batch_size, self.num_heads, self.head_dim, height * width)        # (B, heads, head_dim, H*W)
+        value = value.view(batch_size, self.num_heads, self.head_dim, height * width)  # (B, heads, head_dim, H*W)
+
+        # Transpose for attention computation
+        query = query.permute(0, 1, 3, 2)  # (B, heads, H*W, head_dim)
+        key = key.permute(0, 1, 2, 3)      # (B, heads, head_dim, H*W)
+
+        # Compute attention scores
+        attention_scores = torch.matmul(query, key) / (self.head_dim ** 0.5)  # (B, heads, H*W, H*W)
+        attention_weights = F.softmax(attention_scores, dim=-1)
+
+        # Apply attention weights to value
+        attention_output = torch.matmul(attention_weights, value.permute(0, 1, 3, 2))  # (B, heads, H*W, head_dim)
+
+        # Reshape back to original shape
+        attention_output = attention_output.permute(0, 1, 3, 2).contiguous()  # (B, heads, head_dim, H*W)
+        attention_output = attention_output.view(batch_size, channels, height, width)  # (B, C, H, W)
+
+        # Project back to the original channel size (1 channel in the decoder output)
+        out = self.out_conv(attention_output)
+
+        return out
+        
 # Assuming you have your SkipAutoencoder model defined already
 class SkipAutoencoder(nn.Module):
     def __init__(self, num_heads=4):
