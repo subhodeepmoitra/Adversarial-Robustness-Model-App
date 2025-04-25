@@ -8,10 +8,10 @@ The model is trained to handle adversarial attacks like FGSM (Fast Gradient Sign
 URL: https://adversarialrobustnessapp.streamlit.app/
 How It Works
 
-    Upload Image: Upload an image of a scene that has been adversarially modified (e.g., by FGSM).
+ Step 1: Upload Image: Upload an image of a scene that has been adversarially modified (e.g., by FGSM).
 
-    Reconstruction: The model processes the uploaded image and reconstructs it by leveraging multi-head attention to focus on significant image features and removing adversarial perturbations.
+ Step 2: Reconstruction: The model processes the uploaded image and reconstructs it by leveraging multi-head attention to focus on significant image features and removing adversarial perturbations.
 
-    Result: The original and reconstructed images are displayed side by side for comparison.
+ Step 3: Result: The original and reconstructed images are displayed side by side for comparison.
 
     
