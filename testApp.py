@@ -179,7 +179,7 @@ st.markdown(
 )
 # Streamlit UI for uploading an image
 st.title('Original image reconstruction from adversarial inputs (By Cheems Researchers)')
-st.write("Upload an image and see the reconstructed version with adversarial noise.")
+st.write("Upload an image and see the reconstructed version with adversarial noise. (Currently support for only FGSM)")
 
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png"])
 
