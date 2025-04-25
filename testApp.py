@@ -177,7 +177,9 @@ if uploaded_file is not None:
     # Open the uploaded image and apply transformations
     img = Image.open(uploaded_file)
     img = img.convert("RGB")  # Convert to RGB if not already
-    img_tensor = transform(img).unsqueeze(0).cuda()  # Add batch dimension and move to GPU
+    #img_tensor = transform(img).unsqueeze(0).cuda()  # Add batch dimension and move to GPU
+    img_tensor = transform(img).unsqueeze(0).cpu()  # Add batch dimension and move to CPU
+
 
     # Run the model on the image
     with torch.no_grad():
