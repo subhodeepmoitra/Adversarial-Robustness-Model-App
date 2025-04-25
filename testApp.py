@@ -167,8 +167,18 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.4187, 0.4761, 0.4798], std=[0.2204, 0.2285, 0.2455])
 ])
 
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #6B8E23;  /* Olive Green color */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 # Streamlit UI for uploading an image
-st.title('Image Reconstruction with Adversarial Attacks')
+st.title('Original image reconstruction from adversarial inputs (By Cheems Researchers)')
 st.write("Upload an image and see the reconstructed version with adversarial noise.")
 
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png"])
