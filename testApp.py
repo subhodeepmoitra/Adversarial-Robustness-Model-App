@@ -157,7 +157,9 @@ class SkipAutoencoder(nn.Module):
 # Load your model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = SkipAutoencoder().to(device)
+#model.load_state_dict(torch.load('model_components/FGSM+PGD_Trained_Model.pth', map_location=torch.device('cpu')))
 model.load_state_dict(torch.load('model_components/FGSM+PGD_Trained_Model.pth', map_location=torch.device('cpu')))
+
 model.eval()
 
 # Define the image transformations
