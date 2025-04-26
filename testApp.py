@@ -164,9 +164,9 @@ model.eval()
 
 # Define the image transformations
 transform = transforms.Compose([
-    transforms.Resize((54, 54)),
+    transforms.Resize((40, 40)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.4187, 0.4761, 0.4798], std=[0.2204, 0.2285, 0.2455])
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 st.markdown(
