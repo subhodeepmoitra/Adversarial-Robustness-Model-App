@@ -162,7 +162,7 @@ model = SkipAutoencoder().to(device)
 model_paths = {
     "FGSM+PGD_Trained_Model": 'model_components/FGSM+PGD_Trained_Model.pth',
     "SVHM_FGSM_epoch1": 'model_components/SVHM_FGSM_epoch1.pth',
-    #"PGD Epoch 1": 'model_components/SVHM_PGD_epoch1.pth',
+    "FGSM_SVHN_parallel_E31_multiheaded_pgd_2(Added on 27/04/2025": 'model_components/FGSM_SVHN_parallel_E31_multiheaded_pgd_2.pth',
     #"PGD Epoch 5": 'model_components/SVHM_PGD_epoch5.pth',
     #"Combined FGSM+PGD": 'model_components/FGSM+PGD_Trained_Model.pth'
 }
