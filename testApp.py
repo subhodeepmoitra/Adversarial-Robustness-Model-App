@@ -174,7 +174,7 @@ model.eval()
 
 # Define the image transformations
 transform = transforms.Compose([
-        transforms.Resize((40, 40)),
+        transforms.Resize((400, 400)),
         #transforms.RandomHorizontalFlip(p=0.5),
         #transforms.RandomVerticalFlip(p=0.3),
         #transforms.RandomRotation(degrees=30),
