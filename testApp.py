@@ -158,8 +158,18 @@ class SkipAutoencoder(nn.Module):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = SkipAutoencoder().to(device)
 #model.load_state_dict(torch.load('model_components/FGSM+PGD_Trained_Model.pth', map_location=torch.device('cpu')))
-model.load_state_dict(torch.load('model_components/SVHM_FGSM_epoch1.pth', map_location=torch.device('cpu')))
-
+#model.load_state_dict(torch.load('model_components/SVHM_FGSM_epoch1.pth', map_location=torch.device('cpu')))
+model_paths = {
+    "FGSM+PGD_Trained_Model": 'model_components/FGSM+PGD_Trained_Model.pth',
+    "SVHM_FGSM_epoch1": 'model_components/SVHM_FGSM_epoch1.pth',
+    #"PGD Epoch 1": 'model_components/SVHM_PGD_epoch1.pth',
+    #"PGD Epoch 5": 'model_components/SVHM_PGD_epoch5.pth',
+    #"Combined FGSM+PGD": 'model_components/FGSM+PGD_Trained_Model.pth'
+}
+#Creating a dropdown in Streamlit
+selected_model_name = st.selectbox("Choose a model to use for reconstruction:", list(model_paths.keys()))
+model_path = model_paths[selected_model_name]
+model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
 
 # Define the image transformations
