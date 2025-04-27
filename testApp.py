@@ -213,6 +213,7 @@ if uploaded_file is not None:
     # Run the model on the image
     with torch.no_grad():
         reconstructed_image = model(img_tensor)  # Run reconstruction
+        reconstructed_image_npTensor = model(img_tensor)  # Run reconstruction
 
      # Debugging: Show tensor shapes in Streamlit UI
     st.write(f"Input tensor shape: {img_tensor.shape}")  # Show input shape
@@ -231,7 +232,7 @@ if uploaded_file is not None:
         st.image(reconstructed_image, caption="Reconstructed Image", use_column_width=True)
 
     # First, prepare the reconstructed image
-    reconstructed_image_np = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
+    reconstructed_image_np = reconstructed_image_npTensor.squeeze(0).cpu().numpy().transpose(1, 2, 0)
     reconstructed_image_np = np.clip(reconstructed_image_np, 0, 1)
 
     # Create a matplotlib figure
