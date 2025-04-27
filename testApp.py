@@ -231,8 +231,8 @@ if uploaded_file is not None:
         st.image(reconstructed_image, caption="Reconstructed Image", use_column_width=True)
 
     # First, prepare the reconstructed image
-    reconstructed_image = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
-    reconstructed_image = np.clip(reconstructed_image, 0, 1)
+    reconstructed_image_np = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
+    reconstructed_image_np = np.clip(reconstructed_image_np, 0, 1)
 
     # Create a matplotlib figure
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))  # 1 row, 2 columns
@@ -243,7 +243,7 @@ if uploaded_file is not None:
     axs[0].axis('off')
 
     # Plot reconstructed image
-    axs[1].imshow(reconstructed_image)
+    axs[1].imshow(reconstructed_image_np)
     axs[1].set_title('Reconstructed Image')
     axs[1].axis('off')
 
