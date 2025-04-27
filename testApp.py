@@ -213,7 +213,10 @@ if uploaded_file is not None:
     # Run the model on the image
     with torch.no_grad():
         reconstructed_image = model(img_tensor)  # Run reconstruction
-    
+
+    print(f"Input tensor shape: {img_tensor.shape}")  # Check the shape of input tensor
+    print(f"Reconstructed tensor shape: {reconstructed_image.shape}")  # Check the output tensor shape
+
     # Display original and reconstructed images side by side
     col1, col2 = st.columns(2)  # Create two columns
 
