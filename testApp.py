@@ -183,7 +183,7 @@ transform = transforms.Compose([
         transforms.ToTensor(),
         #transforms.Normalize((0.5,), (0.5,)) # Normalize Gray-scale
         #transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),  # Normalize RGB (Type 1)
-        #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize for RGB (Type 2)
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize for RGB (Type 2)
 ])
 
 st.markdown(
