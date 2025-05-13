@@ -9,7 +9,7 @@ import torch.nn as nn
 import cv2
 import streamlit as st
 import time
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, WebRtcMode
 import av
 
 # Define the Multi-Head Attention Layer
@@ -172,9 +172,6 @@ def fgsm_attack(model, data, epsilon):
 
 # ----------- Streamlit UI Starts Here -----------
 
-st.title('🔐 Real-time Adversarially Robust Image Reconstruction')
-st.caption("Built with ❤️ by Cheems Researchers")
-
 # Model paths
 model_paths = {
     "FGSM+PGD_Trained_Model": 'model_components/FGSM+PGD_Trained_Model.pth',
@@ -197,7 +194,7 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-# Define adversarial attack (e.g., FGSM or PGD)
+# Define adversarial attack (e.g., FGSM)
 def apply_adversarial_attack(model, image_tensor, epsilon=0.1):
     # Apply FGSM (Fast Gradient Sign Method) for adversarial attack
     image_tensor.requires_grad = True
@@ -221,6 +218,7 @@ class VideoProcessor(VideoProcessorBase):
         self.frame = img
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
+# WebRTC Streamer Configuration
 ctx = webrtc_streamer(
     key="example",
     video_processor_factory=VideoProcessor,
@@ -257,4 +255,3 @@ if capture_button and ctx.video_processor and ctx.video_processor.frame is not N
     st.image(output_image, caption="🔁 Reconstructed Output", use_column_width=True)
 elif capture_button:
     st.warning("⚠️ Waiting for webcam frame...")
-
