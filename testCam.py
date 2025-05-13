@@ -1,14 +1,21 @@
 import asyncio
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 
-# Ensuring asyncio loop is running
-asyncio.get_event_loop().run_until_complete(asyncio.sleep(0))
+class VideoProcessor(VideoProcessorBase):
+    def __init__(self):
+        self.frame = None
 
-def video_frame_callback(frame):
-    return frame
+    def recv(self, frame):
+        self.frame = frame.to_ndarray(format="bgr24")
+        return frame
 
-webrtc_streamer(
-    key="example", 
-    video_frame_callback=video_frame_callback
-)
+# Avoid manually starting an event loop
+def run_webrtc():
+    webrtc_streamer(
+        key="example", 
+        video_processor_factory=VideoProcessor
+    )
+
+if __name__ == "__main__":
+    run_webrtc()
