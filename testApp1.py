@@ -212,7 +212,7 @@ capture_button = st.button("📸 Capture Photo")
 # Define STUN and TURN server config
 rtc_configuration = {
     "iceServers": [
-        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun.l.google.com:19302"},
         {
             "urls": "turn:turn.talk.metered.ca:80",
             "username": "openai_streamlit_user",       # You can use any name here
