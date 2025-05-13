@@ -182,42 +182,59 @@ model_paths = {
 
 model_choice = st.selectbox("Select a model for reconstruction:", list(model_paths.keys()))
 
+# Load model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = SkipAutoencoder().to(device)
 model.load_state_dict(torch.load(model_paths[model_choice], map_location=device))
 model.eval()
 
+# Transform for preprocessing
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor()
 ])
 
-# Start video capture
-cap = cv2.VideoCapture(0)
+# File uploader or camera snapshot (simpler for Streamlit)
+use_webcam = st.checkbox("Use webcam to capture image")
 
-# Check if webcam is available
-if not cap.isOpened():
-    st.error("❌ Cannot access webcam. Please check your camera.")
+if use_webcam:
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        st.error("❌ Cannot access webcam.")
+    else:
+        st.info("📸 Press 'Capture Frame' to run model inference.")
+        if st.button("Capture Frame"):
+            ret, frame = cap.read()
+            if not ret:
+                st.error("❌ Failed to read frame.")
+            else:
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                pil_image = Image.fromarray(frame_rgb)
+                st.image(pil_image, caption="Captured Frame", use_column_width=True)
+
+                # Preprocess
+                input_tensor = transform(pil_image).unsqueeze(0).to(device)
+
+                # Inference
+                with torch.no_grad():
+                    output_tensor = model(input_tensor)
+
+                # Post-process and display
+                output_image = output_tensor.squeeze().cpu().permute(1, 2, 0).numpy()
+                output_image = np.clip(output_image, 0, 1)
+                st.image(output_image, caption="Reconstructed Image", use_column_width=True)
+        cap.release()
 else:
-    st.success("✅ Webcam access granted!")
-    frame_placeholder = st.empty()
+    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png"])
+    if uploaded_file:
+        image = Image.open(uploaded_file).convert('RGB')
+        st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # Stream frames
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            st.warning("⚠️ Frame capture failed.")
-            break
+        input_tensor = transform(image).unsqueeze(0).to(device)
 
-        # Convert BGR (OpenCV) to RGB (Streamlit expects RGB)
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        with torch.no_grad():
+            output_tensor = model(input_tensor)
 
-        # Show frame in Streamlit
-        frame_placeholder.image(frame_rgb, channels="RGB", use_column_width=True)
-
-        # Streamlit's control to stop loop
-        if st.button("Stop Webcam"):
-            break
-
-    cap.release()
-    st.info("🛑 Webcam stream stopped.")
+        output_image = output_tensor.squeeze().cpu().permute(1, 2, 0).numpy()
+        output_image = np.clip(output_image, 0, 1)
+        st.image(output_image, caption="Reconstructed Image", use_column_width=True)
