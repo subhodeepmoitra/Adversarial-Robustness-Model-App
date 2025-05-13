@@ -214,9 +214,9 @@ rtc_configuration = {
     "iceServers": [
         {"urls": "stun:stun.l.google.com:19302"},
         {
-           " urls": 'turn:openrelay.metered.ca:80',
-            "username": 'openrelayproject',
-            "credentials": 'openrelayproject'
+            "urls": "turn:openrelay.metered.ca:80",
+            "username": "openai_user",         # Use a dummy or generated user
+            "credential": "openai_password",   # Use a dummy or generated password
         }
     ]
 }
