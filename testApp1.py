@@ -192,43 +192,32 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
+# Start video capture
 cap = cv2.VideoCapture(0)
 
+# Check if webcam is available
 if not cap.isOpened():
     st.error("❌ Cannot access webcam. Please check your camera.")
 else:
-    st.info("⏳ Starting stream in 3 seconds...")
-    time.sleep(3)
-    st.success("✅ Stream started!")
-
+    st.success("✅ Webcam access granted!")
     frame_placeholder = st.empty()
+
+    # Stream frames
     while True:
         ret, frame = cap.read()
         if not ret:
+            st.warning("⚠️ Frame capture failed.")
             break
 
+        # Convert BGR (OpenCV) to RGB (Streamlit expects RGB)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img = Image.fromarray(frame_rgb)
-        img_tensor = transform(img).unsqueeze(0).to(device)
 
-        adv_img_tensor = fgsm_attack(model, img_tensor, epsilon=0.07)
+        # Show frame in Streamlit
+        frame_placeholder.image(frame_rgb, channels="RGB", use_column_width=True)
 
-        with torch.no_grad():
-            output = model(adv_img_tensor)
+        # Streamlit's control to stop loop
+        if st.button("Stop Webcam"):
+            break
 
-        recon = output.squeeze().cpu().numpy().transpose(1, 2, 0)
-        recon = np.clip(recon, 0, 1)
-
-        fig, ax = plt.subplots(1, 2, figsize=(8, 4))
-        ax[0].imshow(frame_rgb)
-        ax[0].set_title("Original")
-        ax[0].axis('off')
-
-        ax[1].imshow(recon)
-        ax[1].set_title("Reconstructed")
-        ax[1].axis('off')
-
-        frame_placeholder.pyplot(fig)
-
-cap.release()
-cv2.destroyAllWindows()
+    cap.release()
+    st.info("🛑 Webcam stream stopped.")
