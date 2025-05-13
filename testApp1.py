@@ -171,7 +171,7 @@ def fgsm_attack(model, data, epsilon):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = SkipAutoencoder().to(device)
 
-# model paths, same as your existing code
+# Use the selected model from dropdown
 model_paths = {
     "FGSM+PGD_Trained_Model": 'model_components/FGSM+PGD_Trained_Model.pth',
     "SVHM_FGSM_epoch1": 'model_components/SVHM_FGSM_epoch1.pth',
@@ -179,80 +179,77 @@ model_paths = {
     "traffic_light_FGSM_E21": 'model_components/traffic_light_FGSM_E21.pth',
 }
 
+# Streamlit UI for selecting the model
 selected_model_name = st.selectbox("Choose a model to use for reconstruction:", list(model_paths.keys()))
 model_path = model_paths[selected_model_name]
 model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
 
-# Define the image transformations (same as your existing code)
+# Define the image transformations (for video frames)
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-color: #6B8E23;  /* Olive Green color */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# Streamlit UI for uploading video
+# Streamlit UI for video capture
 st.title('Real-time Video Reconstruction from Adversarial Inputs (By Cheems Researchers)')
-st.write("Upload a video and see the reconstructed frames with adversarial noise. (Currently support for only FGSM)")
+st.write("This demo processes live video feed frame by frame and shows the reconstructed version with adversarial noise.")
 
-uploaded_video = st.file_uploader("Choose a video...", type=["mp4", "avi", "mov"])
+# OpenCV to capture video from webcam
+cap = cv2.VideoCapture(0)  # 0 for webcam, or you can put the path for an external video file
 
-if uploaded_video is not None:
-    # Read the video from the uploaded file
-    video_bytes = uploaded_video.read()
-    video_file = BytesIO(video_bytes)
-
-    # Use OpenCV to open the video stream
-    cap = cv2.VideoCapture(video_file)
-    
-    # Ensure video capture opened successfully
-    if not cap.isOpened():
-        st.error("Error: Unable to open video file.")
-    else:
-        # Start the video processing loop
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # Convert frame to RGB (OpenCV uses BGR by default)
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-            # Convert frame to PIL image and apply transformation
-            pil_img = Image.fromarray(frame_rgb)
-            img_tensor = transform(pil_img).unsqueeze(0).to(device)
-
-            # Run the model on the frame
-            with torch.no_grad():
-                reconstructed_image = model(img_tensor)  # Run reconstruction
-
-            # Convert reconstructed tensor to numpy for display
-            reconstructed_image_np = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
-            reconstructed_image_np = np.clip(reconstructed_image_np, 0, 1)
-
-            # Display original and reconstructed frames side by side
-            col1, col2 = st.columns(2)  # Create two columns
-
-            with col1:
-                st.image(frame_rgb, caption="Original Frame", use_column_width=True)
-
-            with col2:
-                st.image(reconstructed_image_np, caption="Reconstructed Frame", use_column_width=True)
-
-            # Optionally, you can display additional metrics like PSNR or SSIM here
-            # For performance reasons, you might want to throttle the frame rate (e.g., using `time.sleep()`)
-
-        cap.release()
+if not cap.isOpened():
+    st.error("Error: Unable to access the webcam or video file.")
 else:
-    st.write("Upload a video to get started.")
+    # Start with an initial 3-second wait before applying the attack
+    attack_delay = 3  # Seconds to wait before applying attack
+    time.sleep(attack_delay)
+
+    while True:
+        ret, frame = cap.read()
+        
+        if not ret:
+            break
+        
+        # Convert the BGR frame from OpenCV to RGB
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame_rgb)
+        
+        # Apply transformations
+        img_tensor = transform(img).unsqueeze(0).to(device)  # Add batch dimension and move to device
+        
+        # Run the model on the frame
+        with torch.no_grad():
+            reconstructed_image = model(img_tensor)  # Run reconstruction
+
+        # Convert the tensor back to a NumPy array
+        reconstructed_image_np = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
+        reconstructed_image_np = np.clip(reconstructed_image_np, 0, 1)
+        
+        # Create a figure for displaying original and reconstructed images
+        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+        
+        # Plot the original image
+        axs[0].imshow(frame_rgb)
+        axs[0].set_title('Original Frame')
+        axs[0].axis('off')
+
+        # Plot the reconstructed image
+        axs[1].imshow(reconstructed_image_np)
+        axs[1].set_title('Reconstructed Frame')
+        axs[1].axis('off')
+
+        # Display the figure
+        st.pyplot(fig)
+
+        # Optional: add frame rate control to avoid excessive computation
+        
+        # Exit condition: Stop video when user presses 'q' (you can modify this in Streamlit as needed)
+        # Use a key press event or another method to stop capturing.
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
