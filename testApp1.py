@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import torch.nn as nn
 import cv2
-from io import BytesIO
 import streamlit as st
+import time
 
 # Define the Multi-Head Attention Layer
 class MultiHeadAttention(nn.Module):
@@ -168,97 +168,67 @@ def fgsm_attack(model, data, epsilon):
     perturbed_data = torch.clamp(perturbed_data, 0, 1)
     return perturbed_data.detach()
 
-# Load the model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = SkipAutoencoder().to(device)
+# ----------- Streamlit UI Starts Here -----------
 
-# Use the selected model from dropdown
+st.title('🔐 Real-time Adversarially Robust Image Reconstruction')
+st.caption("Built with ❤️ by Cheems Researchers")
+
 model_paths = {
     "FGSM+PGD_Trained_Model": 'model_components/FGSM+PGD_Trained_Model.pth',
     "SVHM_FGSM_epoch1": 'model_components/SVHM_FGSM_epoch1.pth',
-    "FGSM_SVHN_parallel_E31_multiheaded_pgd_2(Added on 27/04/2025": 'model_components/FGSM_SVHN_parallel_E31_multiheaded_pgd_2.pth',
+    "FGSM_SVHN_parallel_E31_multiheaded_pgd_2": 'model_components/FGSM_SVHN_parallel_E31_multiheaded_pgd_2.pth',
     "traffic_light_FGSM_E21": 'model_components/traffic_light_FGSM_E21.pth',
 }
 
-# Streamlit UI for selecting the model
-# Streamlit UI for selecting the model
-st.write("Available models:", list(model_paths.keys()))
-selected_model_name = st.selectbox("Choose a model to use for reconstruction:", list(model_paths.keys()))
+model_choice = st.selectbox("Select a model for reconstruction:", list(model_paths.keys()))
 
-# Debugging: Display the selected model
-st.write(f"Selected model: {selected_model_name}")
-
-# Load the model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = SkipAutoencoder().to(device)
-model.load_state_dict(torch.load(model_paths[selected_model_name], map_location=device))
+model.load_state_dict(torch.load(model_paths[model_choice], map_location=device))
 model.eval()
 
-# Define the image transformations (for video frames)
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    transforms.ToTensor()
 ])
 
-# Streamlit UI for video capture
-st.title('Real-time Video Reconstruction from Adversarial Inputs (By Cheems Researchers)')
-st.write("This demo processes live video feed frame by frame and shows the reconstructed version with adversarial noise.")
-
-# OpenCV to capture video from webcam
-cap = cv2.VideoCapture(0)  # 0 for webcam, or you can put the path for an external video file
+cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
-    st.error("Error: Unable to access the webcam or video file.")
+    st.error("❌ Cannot access webcam. Please check your camera.")
 else:
-    # Start with an initial 3-second wait before applying the attack
-    attack_delay = 3  # Seconds to wait before applying attack
-    time.sleep(attack_delay)
+    st.info("⏳ Starting stream in 3 seconds...")
+    time.sleep(3)
+    st.success("✅ Stream started!")
 
+    frame_placeholder = st.empty()
     while True:
         ret, frame = cap.read()
-        
         if not ret:
             break
-        
-        # Convert the BGR frame from OpenCV to RGB
+
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame_rgb)
-        
-        # Apply transformations
-        img_tensor = transform(img).unsqueeze(0).to(device)  # Add batch dimension and move to device
-        
-        # Run the model on the frame
+        img_tensor = transform(img).unsqueeze(0).to(device)
+
+        adv_img_tensor = fgsm_attack(model, img_tensor, epsilon=0.07)
+
         with torch.no_grad():
-            reconstructed_image = model(img_tensor)  # Run reconstruction
+            output = model(adv_img_tensor)
 
-        # Convert the tensor back to a NumPy array
-        reconstructed_image_np = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
-        reconstructed_image_np = np.clip(reconstructed_image_np, 0, 1)
-        
-        # Create a figure for displaying original and reconstructed images
-        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
-        
-        # Plot the original image
-        axs[0].imshow(frame_rgb)
-        axs[0].set_title('Original Frame')
-        axs[0].axis('off')
+        recon = output.squeeze().cpu().numpy().transpose(1, 2, 0)
+        recon = np.clip(recon, 0, 1)
 
-        # Plot the reconstructed image
-        axs[1].imshow(reconstructed_image_np)
-        axs[1].set_title('Reconstructed Frame')
-        axs[1].axis('off')
+        fig, ax = plt.subplots(1, 2, figsize=(8, 4))
+        ax[0].imshow(frame_rgb)
+        ax[0].set_title("Original")
+        ax[0].axis('off')
 
-        # Display the figure
-        st.pyplot(fig)
+        ax[1].imshow(recon)
+        ax[1].set_title("Reconstructed")
+        ax[1].axis('off')
 
-        # Optional: add frame rate control to avoid excessive computation
-        
-        # Exit condition: Stop video when user presses 'q' (you can modify this in Streamlit as needed)
-        # Use a key press event or another method to stop capturing.
-        
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        frame_placeholder.pyplot(fig)
 
-    cap.release()
-    cv2.destroyAllWindows()
+cap.release()
+cv2.destroyAllWindows()
