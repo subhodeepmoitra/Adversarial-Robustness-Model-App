@@ -1,4 +1,4 @@
-from streamlit_webrtc import webrtc_streamer, WebRtcMode
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, VideoProcessorBase
 import streamlit as st
 
 # Custom STUN/TURN servers
