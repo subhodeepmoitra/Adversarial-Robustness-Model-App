@@ -180,9 +180,17 @@ model_paths = {
 }
 
 # Streamlit UI for selecting the model
+# Streamlit UI for selecting the model
+st.write("Available models:", list(model_paths.keys()))
 selected_model_name = st.selectbox("Choose a model to use for reconstruction:", list(model_paths.keys()))
-model_path = model_paths[selected_model_name]
-model.load_state_dict(torch.load(model_path, map_location=device))
+
+# Debugging: Display the selected model
+st.write(f"Selected model: {selected_model_name}")
+
+# Load the model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = SkipAutoencoder().to(device)
+model.load_state_dict(torch.load(model_paths[selected_model_name], map_location=device))
 model.eval()
 
 # Define the image transformations (for video frames)
