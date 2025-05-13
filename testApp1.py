@@ -175,6 +175,7 @@ def fgsm_attack(model, data, epsilon):
 st.title('🔐 Real-time Adversarially Robust Image Reconstruction')
 st.caption("Built with ❤️ by Cheems Researchers")
 
+# Model paths
 model_paths = {
     "FGSM+PGD_Trained_Model": 'model_components/FGSM+PGD_Trained_Model.pth',
     "SVHM_FGSM_epoch1": 'model_components/SVHM_FGSM_epoch1.pth',
@@ -190,15 +191,26 @@ model = SkipAutoencoder().to(device)
 model.load_state_dict(torch.load(model_paths[model_choice], map_location=device))
 model.eval()
 
-# Transform for preprocessing
+# Preprocessing transform
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor()
 ])
 
+# Define adversarial attack (e.g., FGSM or PGD)
+def apply_adversarial_attack(model, image_tensor, epsilon=0.1):
+    # Apply FGSM (Fast Gradient Sign Method) for adversarial attack
+    image_tensor.requires_grad = True
+    output = model(image_tensor)
+    loss = torch.nn.MSELoss()(output, image_tensor)
+    model.zero_grad()
+    loss.backward()
+    perturbed_image = image_tensor + epsilon * image_tensor.grad.sign()
+    return perturbed_image
+
 # === Video Processor ===
 captured_frame = st.session_state.get("captured_frame", None)
-run_inference = st.button("📸 Capture and Reconstruct")
+capture_button = st.button("📸 Capture Photo")
 
 class VideoProcessor(VideoProcessorBase):
     def __init__(self):
@@ -216,25 +228,33 @@ ctx = webrtc_streamer(
     async_processing=True,
 )
 
-# === Run Inference ===
-if run_inference and ctx.video_processor and ctx.video_processor.frame is not None:
+# === Run Inference and Attack after Capturing Image ===
+if capture_button and ctx.video_processor and ctx.video_processor.frame is not None:
     frame = ctx.video_processor.frame
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     pil_image = Image.fromarray(frame_rgb)
     st.image(pil_image, caption="📷 Captured Input Frame", use_column_width=True)
 
-    # Preprocess
+    # Preprocess the captured image
     input_tensor = transform(pil_image).unsqueeze(0).to(device)
 
-    # Inference
-    with torch.no_grad():
-        output_tensor = model(input_tensor)
+    # Apply adversarial attack on the captured image (e.g., FGSM)
+    attacked_image_tensor = apply_adversarial_attack(model, input_tensor)
 
-    # Postprocess
+    # Inference on the attacked image
+    with torch.no_grad():
+        output_tensor = model(attacked_image_tensor)
+
+    # Post-process and display the images
+    attacked_image = attacked_image_tensor.squeeze().cpu().permute(1, 2, 0).numpy()
+    attacked_image = np.clip(attacked_image, 0, 1)
+
     output_image = output_tensor.squeeze().cpu().permute(1, 2, 0).numpy()
     output_image = np.clip(output_image, 0, 1)
 
+    # Display original, attacked, and reconstructed images
+    st.image(attacked_image, caption="⚡ Attacked Image", use_column_width=True)
     st.image(output_image, caption="🔁 Reconstructed Output", use_column_width=True)
-elif run_inference:
+elif capture_button:
     st.warning("⚠️ Waiting for webcam frame...")
 
