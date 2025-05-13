@@ -9,6 +9,8 @@ import torch.nn as nn
 import cv2
 import streamlit as st
 import time
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
+import av
 
 # Define the Multi-Head Attention Layer
 class MultiHeadAttention(nn.Module):
@@ -194,47 +196,45 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 
-# File uploader or camera snapshot (simpler for Streamlit)
-use_webcam = st.checkbox("Use webcam to capture image")
+# === Video Processor ===
+captured_frame = st.session_state.get("captured_frame", None)
+run_inference = st.button("📸 Capture and Reconstruct")
 
-if use_webcam:
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        st.error("❌ Cannot access webcam.")
-    else:
-        st.info("📸 Press 'Capture Frame' to run model inference.")
-        if st.button("Capture Frame"):
-            ret, frame = cap.read()
-            if not ret:
-                st.error("❌ Failed to read frame.")
-            else:
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                pil_image = Image.fromarray(frame_rgb)
-                st.image(pil_image, caption="Captured Frame", use_column_width=True)
+class VideoProcessor(VideoProcessorBase):
+    def __init__(self):
+        self.frame = None
 
-                # Preprocess
-                input_tensor = transform(pil_image).unsqueeze(0).to(device)
+    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+        img = frame.to_ndarray(format="bgr24")
+        self.frame = img
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-                # Inference
-                with torch.no_grad():
-                    output_tensor = model(input_tensor)
+ctx = webrtc_streamer(
+    key="example",
+    video_processor_factory=VideoProcessor,
+    media_stream_constraints={"video": True, "audio": False},
+    async_processing=True,
+)
 
-                # Post-process and display
-                output_image = output_tensor.squeeze().cpu().permute(1, 2, 0).numpy()
-                output_image = np.clip(output_image, 0, 1)
-                st.image(output_image, caption="Reconstructed Image", use_column_width=True)
-        cap.release()
-else:
-    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png"])
-    if uploaded_file:
-        image = Image.open(uploaded_file).convert('RGB')
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+# === Run Inference ===
+if run_inference and ctx.video_processor and ctx.video_processor.frame is not None:
+    frame = ctx.video_processor.frame
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    pil_image = Image.fromarray(frame_rgb)
+    st.image(pil_image, caption="📷 Captured Input Frame", use_column_width=True)
 
-        input_tensor = transform(image).unsqueeze(0).to(device)
+    # Preprocess
+    input_tensor = transform(pil_image).unsqueeze(0).to(device)
 
-        with torch.no_grad():
-            output_tensor = model(input_tensor)
+    # Inference
+    with torch.no_grad():
+        output_tensor = model(input_tensor)
 
-        output_image = output_tensor.squeeze().cpu().permute(1, 2, 0).numpy()
-        output_image = np.clip(output_image, 0, 1)
-        st.image(output_image, caption="Reconstructed Image", use_column_width=True)
+    # Postprocess
+    output_image = output_tensor.squeeze().cpu().permute(1, 2, 0).numpy()
+    output_image = np.clip(output_image, 0, 1)
+
+    st.image(output_image, caption="🔁 Reconstructed Output", use_column_width=True)
+elif run_inference:
+    st.warning("⚠️ Waiting for webcam frame...")
+
