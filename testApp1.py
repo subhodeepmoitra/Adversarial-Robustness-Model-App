@@ -64,4 +64,5 @@ class VideoTransformer(VideoTransformerBase):
 
 # Streamlit UI
 st.title("Live FGSM Adversarial Attack")
-webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
+webrtc_streamer(key="example", video_processor_factory=VideoTransformer)
+
