@@ -1,36 +1,160 @@
 
-import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 import torch
-import torch.nn as nn
-import numpy as np
-import av
-import cv2
+from torchvision import transforms
 from PIL import Image
-import torchvision.transforms as transforms
+import numpy as np
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
+import torch.nn as nn
+import cv2
+from io import BytesIO
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Define the Multi-Head Attention Layer
+class MultiHeadAttention(nn.Module):
+    def __init__(self, in_channels, num_heads=4):
+        super(MultiHeadAttention, self).__init__()
+        assert in_channels % num_heads == 0, "in_channels must be divisible by num_heads"
 
-# Dummy Model or real autoencoder
-class DummyAutoencoder(nn.Module):
-    def __init__(self):
-        super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = in_channels // num_heads
+
+        # Define the query, key, and value projections for each head
+        self.query_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+        # Output projection
+        self.out_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+    def forward(self, query, key, value):
+        batch_size, channels, height, width = query.size()
+
+        # Apply projections to get query, key, and value
+        query = self.query_conv(query)  # (B, C, H, W)
+        key = self.key_conv(key)        # (B, C, H, W)
+        value = self.value_conv(value)  # (B, C, H, W)
+
+        # Reshape for multi-head attention
+        query = query.view(batch_size, self.num_heads, self.head_dim, height * width)  # (B, heads, head_dim, H*W)
+        key = key.view(batch_size, self.num_heads, self.head_dim, height * width)        # (B, heads, head_dim, H*W)
+        value = value.view(batch_size, self.num_heads, self.head_dim, height * width)  # (B, heads, head_dim, H*W)
+
+        # Transpose for attention computation
+        query = query.permute(0, 1, 3, 2)  # (B, heads, H*W, head_dim)
+        key = key.permute(0, 1, 2, 3)      # (B, heads, head_dim, H*W)
+
+        # Compute attention scores
+        attention_scores = torch.matmul(query, key) / (self.head_dim ** 0.5)  # (B, heads, H*W, H*W)
+        attention_weights = F.softmax(attention_scores, dim=-1)
+
+        # Apply attention weights to value
+        attention_output = torch.matmul(attention_weights, value.permute(0, 1, 3, 2))  # (B, heads, H*W, head_dim)
+
+        # Reshape back to original shape
+        attention_output = attention_output.permute(0, 1, 3, 2).contiguous()  # (B, heads, head_dim, H*W)
+        attention_output = attention_output.view(batch_size, channels, height, width)  # (B, C, H, W)
+
+        # Project back to the original channel size
+        out = self.out_conv(attention_output)
+
+        return out
+class MultiHeadAttentionDecoder(nn.Module):
+    def __init__(self, in_channels, num_heads=1):
+        super(MultiHeadAttentionDecoder, self).__init__()
+        assert in_channels % num_heads == 0, "in_channels must be divisible by num_heads"
+
+        self.num_heads = num_heads
+        self.head_dim = in_channels // num_heads
+
+        # Define the query, key, and value projections for each head
+        self.query_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+        # Output projection
+        self.out_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+    def forward(self, query, key, value):
+        batch_size, channels, height, width = query.size()
+
+        # Apply projections to get query, key, and value
+        query = self.query_conv(query)  # (B, C, H, W)
+        key = self.key_conv(key)        # (B, C, H, W)
+        value = self.value_conv(value)  # (B, C, H, W)
+
+        # Reshape for multi-head attention
+        query = query.view(batch_size, self.num_heads, self.head_dim, height * width)  # (B, heads, head_dim, H*W)
+        key = key.view(batch_size, self.num_heads, self.head_dim, height * width)        # (B, heads, head_dim, H*W)
+        value = value.view(batch_size, self.num_heads, self.head_dim, height * width)  # (B, heads, head_dim, H*W)
+
+        # Transpose for attention computation
+        query = query.permute(0, 1, 3, 2)  # (B, heads, H*W, head_dim)
+        key = key.permute(0, 1, 2, 3)      # (B, heads, head_dim, H*W)
+
+        # Compute attention scores
+        attention_scores = torch.matmul(query, key) / (self.head_dim ** 0.5)  # (B, heads, H*W, H*W)
+        attention_weights = F.softmax(attention_scores, dim=-1)
+
+        # Apply attention weights to value
+        attention_output = torch.matmul(attention_weights, value.permute(0, 1, 3, 2))  # (B, heads, H*W, head_dim)
+
+        # Reshape back to original shape
+        attention_output = attention_output.permute(0, 1, 3, 2).contiguous()  # (B, heads, head_dim, H*W)
+        attention_output = attention_output.view(batch_size, channels, height, width)  # (B, C, H, W)
+
+        # Project back to the original channel size (1 channel in the decoder output)
+        out = self.out_conv(attention_output)
+
+        return out
+        
+# Assuming you have your SkipAutoencoder model defined already
+class SkipAutoencoder(nn.Module):
+    def __init__(self, num_heads=4):
+        super(SkipAutoencoder, self).__init__()
+
+        # Encoder with multi-headed attention
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, 16, 3, stride=2, padding=1),
+            nn.Conv2d(3, 16, 3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(16, 32, 3, stride=2, padding=1),
+            nn.Conv2d(16, 32, 3, stride=1, padding=1),
             nn.ReLU()
         )
+
+        # Skip connection
+        self.conv_skip = nn.Conv2d(16, 16, kernel_size=1)
+
+        # Adding multi-head attention layer after encoding
+        self.attention = MultiHeadAttention(32, num_heads=num_heads)
+
+        # Decoder
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(32, 16, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(32, 16, 3, stride=1, padding=1, output_padding=0),
             nn.ReLU(),
-            nn.ConvTranspose2d(16, 3, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(16, 3, 3, stride=1, padding=1, output_padding=0),
             nn.Sigmoid()
         )
-    def forward(self, x):
-        return self.decoder(self.encoder(x))
 
-model = DummyAutoencoder().to(device).eval()
+        self.decoder_attention = MultiHeadAttentionDecoder(3, num_heads=1)
+
+    def forward(self, x):
+        # Encoder
+        x1 = self.encoder[0:2](x)  # First Conv layer and activation
+        x2 = self.encoder[2:](x1)  # Second Conv layer and activation
+
+        # Skip connection
+        skip = self.conv_skip(x1)
+
+        # Apply multi-head attention on encoded features
+        x2 = self.attention(x2, x2, x2)
+
+        # Decoder
+        x = self.decoder[0:2](x2)  # First deconv layer and activation
+        x = self.decoder[2](x + skip)  # Second deconv layer with skip connection
+
+        # Apply multi-head attention on decoded features
+        x = self.decoder_attention(x, x, x)
+
+        return x
 
 # FGSM
 def fgsm_attack(model, data, epsilon):
@@ -43,26 +167,92 @@ def fgsm_attack(model, data, epsilon):
     perturbed_data = torch.clamp(perturbed_data, 0, 1)
     return perturbed_data.detach()
 
-# Video transformer
-class VideoTransformer(VideoTransformerBase):
-    def __init__(self):
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((128, 128)),
-            transforms.ToTensor()
-        ])
+# Load the model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = SkipAutoencoder().to(device)
 
-    def transform_frame(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        tensor = self.transform(rgb).unsqueeze(0).to(device)
-        adv = fgsm_attack(model, tensor, epsilon=0.07)
-        adv_img = adv.squeeze().detach().cpu().numpy()
-        adv_img = np.transpose(adv_img, (1, 2, 0)) * 255
-        adv_img = adv_img.astype(np.uint8)
-        return av.VideoFrame.from_ndarray(adv_img, format="rgb24")
+# model paths, same as your existing code
+model_paths = {
+    "FGSM+PGD_Trained_Model": 'model_components/FGSM+PGD_Trained_Model.pth',
+    "SVHM_FGSM_epoch1": 'model_components/SVHM_FGSM_epoch1.pth',
+    "FGSM_SVHN_parallel_E31_multiheaded_pgd_2(Added on 27/04/2025": 'model_components/FGSM_SVHN_parallel_E31_multiheaded_pgd_2.pth',
+    "traffic_light_FGSM_E21": 'model_components/traffic_light_FGSM_E21.pth',
+}
 
-# Streamlit UI
-st.title("Live FGSM Adversarial Attack")
-webrtc_streamer(key="example", video_processor_factory=VideoTransformer)
+selected_model_name = st.selectbox("Choose a model to use for reconstruction:", list(model_paths.keys()))
+model_path = model_paths[selected_model_name]
+model.load_state_dict(torch.load(model_path, map_location=device))
+model.eval()
 
+# Define the image transformations (same as your existing code)
+transform = transforms.Compose([
+    transforms.Resize((64, 64)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #6B8E23;  /* Olive Green color */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Streamlit UI for uploading video
+st.title('Real-time Video Reconstruction from Adversarial Inputs (By Cheems Researchers)')
+st.write("Upload a video and see the reconstructed frames with adversarial noise. (Currently support for only FGSM)")
+
+uploaded_video = st.file_uploader("Choose a video...", type=["mp4", "avi", "mov"])
+
+if uploaded_video is not None:
+    # Read the video from the uploaded file
+    video_bytes = uploaded_video.read()
+    video_file = BytesIO(video_bytes)
+
+    # Use OpenCV to open the video stream
+    cap = cv2.VideoCapture(video_file)
+    
+    # Ensure video capture opened successfully
+    if not cap.isOpened():
+        st.error("Error: Unable to open video file.")
+    else:
+        # Start the video processing loop
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Convert frame to RGB (OpenCV uses BGR by default)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # Convert frame to PIL image and apply transformation
+            pil_img = Image.fromarray(frame_rgb)
+            img_tensor = transform(pil_img).unsqueeze(0).to(device)
+
+            # Run the model on the frame
+            with torch.no_grad():
+                reconstructed_image = model(img_tensor)  # Run reconstruction
+
+            # Convert reconstructed tensor to numpy for display
+            reconstructed_image_np = reconstructed_image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
+            reconstructed_image_np = np.clip(reconstructed_image_np, 0, 1)
+
+            # Display original and reconstructed frames side by side
+            col1, col2 = st.columns(2)  # Create two columns
+
+            with col1:
+                st.image(frame_rgb, caption="Original Frame", use_column_width=True)
+
+            with col2:
+                st.image(reconstructed_image_np, caption="Reconstructed Frame", use_column_width=True)
+
+            # Optionally, you can display additional metrics like PSNR or SSIM here
+            # For performance reasons, you might want to throttle the frame rate (e.g., using `time.sleep()`)
+
+        cap.release()
+else:
+    st.write("Upload a video to get started.")
