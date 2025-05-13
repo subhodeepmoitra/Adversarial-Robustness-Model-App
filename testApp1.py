@@ -209,6 +209,18 @@ def apply_adversarial_attack(model, image_tensor, epsilon=0.1):
 captured_frame = st.session_state.get("captured_frame", None)
 capture_button = st.button("📸 Capture Photo")
 
+# Define STUN and TURN server config
+rtc_configuration = {
+    "iceServers": [
+        {"urls": "stun:stun.l.google.com:19302"},  # STUN server
+        {
+            "urls": "turn:your_turn_server_address",  # 🔁 Replace this
+            "username": "your_username",             # 🔁 Replace this
+            "credential": "your_password",           # 🔁 Replace this
+        }
+    ]
+}
+
 class VideoProcessor(VideoProcessorBase):
     def __init__(self):
         self.frame = None
@@ -222,6 +234,7 @@ class VideoProcessor(VideoProcessorBase):
 ctx = webrtc_streamer(
     key="example",
     video_processor_factory=VideoProcessor,
+    rtc_configuration=rtc_configuration,
     media_stream_constraints={"video": True, "audio": False},
     async_processing=True,
 )
