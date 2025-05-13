@@ -215,11 +215,12 @@ rtc_configuration = {
         {"urls": "stun:stun.l.google.com:19302"},
         {
             "urls": "turn:openrelay.metered.ca:80",
-            "username": "openai_user",         # Use a dummy or generated user
-            "credential": "openai_password",   # Use a dummy or generated password
+            "username": "openai_user",
+            "credential": "openai_password",
         }
     ]
 }
+
 
 class VideoProcessor(VideoProcessorBase):
     def __init__(self):
